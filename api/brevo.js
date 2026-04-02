@@ -43,11 +43,12 @@ export default async function handler(req, res) {
             console.log("Newsletter DOI triggered");
 
             const payload = {
-                email: email,
-                includeListIds: parsedListIds,
-                templateId: 8,
-                redirectionUrl: "https://www.maison-acme.com/thank-you"
-            };
+    email: email,
+    attributes: attributes, // 👈 DAS HINZUFÜGEN
+    includeListIds: parsedListIds,
+    templateId: 8,
+    redirectionUrl: "https://www.maison-acme.com/thank-you"
+};
 
             console.log("DOI Payload:", payload);
 
