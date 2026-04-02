@@ -1,68 +1,72 @@
 export default async function handler(req, res) {
-    // ✅ CORS erlauben
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-    // ✅ Preflight (CORS)
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-
-    // ❌ Nur POST erlauben
     if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
+        return res.status(405).json({ message: 'Method not allowed' });
     }
 
     try {
-        // ✅ Body sicher parsen
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-
-        const { email, attributes, listIds } = body || {};
+        const { email, attributes = {}, listIds = [], type } = req.body;
 
         if (!email) {
-            return res.status(400).json({ error: 'Email is required' });
+            return res.status(400).json({ message: 'Email is required' });
         }
 
-        // 🔗 Request an Brevo
+        // ✅ NEWSLETTER → DOUBLE OPT-IN
+        if (type === "newsletter") {
+
+            const payload = {
+                email: email,
+                includeListIds: listIds,
+                templateId: 8,
+                redirectionUrl: "https://www.maison-acme.com/thank-you"
+            };
+
+            const response = await fetch('https://api.brevo.com/v3/contacts/doubleOptinConfirmation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'api-key': process.env.BREVO_API_KEY
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                console.error('DOI Error:', data);
+                return res.status(400).json(data);
+            }
+
+            return res.status(200).json({ success: true });
+        }
+
+        // ✅ EVENTS → WIE BISHER
+        const payload = {
+            email: email,
+            attributes: attributes,
+            listIds: listIds,
+            updateEnabled: true
+        };
+
         const response = await fetch('https://api.brevo.com/v3/contacts', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'api-key': process.env.BREVO_API_KEY
             },
-            body: JSON.stringify({
-                email,
-                attributes,
-                listIds,
-                updateEnabled: true
-            })
+            body: JSON.stringify(payload)
         });
 
-        // 🔄 Response sicher verarbeiten
-        let data;
-        try {
-            data = await response.json();
-        } catch (e) {
-            data = { message: 'No JSON response from Brevo' };
-        }
+        const data = await response.json();
 
-        // ❌ Fehler von Brevo weitergeben
         if (!response.ok) {
-            return res.status(response.status).json(data);
+            console.error('Event Error:', data);
+            return res.status(400).json(data);
         }
 
-        // ✅ Erfolg
-        return res.status(200).json({
-            success: true
-        });
+        return res.status(200).json({ success: true });
 
     } catch (error) {
-        console.error('Server error:', error);
-
-        return res.status(500).json({
-            error: 'Server error',
-            details: error.message
-        });
+        console.error('Server Error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
     }
 }
