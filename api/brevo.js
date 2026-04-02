@@ -1,4 +1,16 @@
 export default async function handler(req, res) {
+
+    // ✅ CORS FIX (wichtig!)
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // ✅ Preflight Request abfangen
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    // Nur POST erlauben
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Method not allowed' });
     }
@@ -12,7 +24,7 @@ export default async function handler(req, res) {
             return res.status(400).json({ message: 'Email is required' });
         }
 
-        // 🔧 List IDs sauber parsen (fix für String/Array)
+        // ✅ List IDs sauber parsen
         const parsedListIds = Array.isArray(listIds)
             ? listIds
             : (listIds || [])
@@ -23,7 +35,9 @@ export default async function handler(req, res) {
 
         console.log("Parsed List IDs:", parsedListIds);
 
+        // =====================================================
         // ✅ NEWSLETTER → DOUBLE OPT-IN
+        // =====================================================
         if (type === "newsletter") {
 
             console.log("Newsletter DOI triggered");
@@ -58,7 +72,9 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true });
         }
 
-        // ✅ EVENTS → WIE BISHER
+        // =====================================================
+        // ✅ EVENTS → NORMAL FLOW
+        // =====================================================
         console.log("Event flow triggered");
 
         const payload = {
