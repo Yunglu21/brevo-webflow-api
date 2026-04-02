@@ -4,21 +4,38 @@ export default async function handler(req, res) {
     }
 
     try {
+        console.log("Incoming request:", req.body);
+
         const { email, attributes = {}, listIds = [], type } = req.body;
 
         if (!email) {
             return res.status(400).json({ message: 'Email is required' });
         }
 
+        // 🔧 List IDs sauber parsen (fix für String/Array)
+        const parsedListIds = Array.isArray(listIds)
+            ? listIds
+            : (listIds || [])
+                .toString()
+                .split(',')
+                .map(id => parseInt(id.trim()))
+                .filter(id => !isNaN(id));
+
+        console.log("Parsed List IDs:", parsedListIds);
+
         // ✅ NEWSLETTER → DOUBLE OPT-IN
         if (type === "newsletter") {
 
+            console.log("Newsletter DOI triggered");
+
             const payload = {
                 email: email,
-                includeListIds: listIds,
+                includeListIds: parsedListIds,
                 templateId: 8,
                 redirectionUrl: "https://www.maison-acme.com/thank-you"
             };
+
+            console.log("DOI Payload:", payload);
 
             const response = await fetch('https://api.brevo.com/v3/contacts/doubleOptinConfirmation', {
                 method: 'POST',
@@ -31,6 +48,8 @@ export default async function handler(req, res) {
 
             const data = await response.json();
 
+            console.log("Brevo DOI response:", data);
+
             if (!response.ok) {
                 console.error('DOI Error:', data);
                 return res.status(400).json(data);
@@ -40,12 +59,16 @@ export default async function handler(req, res) {
         }
 
         // ✅ EVENTS → WIE BISHER
+        console.log("Event flow triggered");
+
         const payload = {
             email: email,
             attributes: attributes,
-            listIds: listIds,
+            listIds: parsedListIds,
             updateEnabled: true
         };
+
+        console.log("Event Payload:", payload);
 
         const response = await fetch('https://api.brevo.com/v3/contacts', {
             method: 'POST',
@@ -57,6 +80,8 @@ export default async function handler(req, res) {
         });
 
         const data = await response.json();
+
+        console.log("Brevo Event response:", data);
 
         if (!response.ok) {
             console.error('Event Error:', data);
